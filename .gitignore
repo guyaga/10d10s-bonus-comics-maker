@@ -1,0 +1,18 @@
+# secrets — never commit
+.env
+.env.local
+*.key
+
+# deps
+node_modules/
+
+# generated comic working files (keep the repo about the skill, not one comic)
+Pages/
+Assembled/
+Character_Sheets/
+Assets/
+*.pdf
+
+# os / editor noise
+.DS_Store
+Thumbs.db
