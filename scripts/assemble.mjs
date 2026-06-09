@@ -21,6 +21,11 @@ const BASE = config.base ? path.resolve(config.base) : projectDir;
 const OUT = path.join(BASE, "Assembled");
 if (!fs.existsSync(OUT)) fs.mkdirSync(OUT, { recursive: true });
 
+// Comic lettering fonts (installed under assets/fonts; override via config.fonts).
+// FONT_BODY = captions + dialogue, FONT_DISPLAY = SFX + titles.
+const FONT_BODY = config.fonts?.body || "Comic Neue";
+const FONT_DISPLAY = config.fonts?.display || "Bangers";
+
 // ---------- SVG helpers ----------
 function esc(str) {
   return String(str)
@@ -47,24 +52,26 @@ function wrapText(text, maxChars) {
   return lines;
 }
 
-// Classic comic narrator caption: white box, bold black border + drop shadow,
-// bold black text. Big and legible.
-function captionSvg(text, width, fontSize = 34, maxCharsPerLine = 40) {
+// Classic comic narrator caption: white box, bold black border + thin inner
+// keyline + drop shadow, comic-font black text. Big and legible.
+function captionSvg(text, width, fontSize = 32, maxCharsPerLine = 34) {
   const lines = wrapText(text, maxCharsPerLine);
-  const lineHeight = fontSize * 1.3;
-  const padX = 26, padY = 18;
+  const lineHeight = fontSize * 1.26;
+  const padX = 28, padY = 20;
   const boxW = width;
   const boxH = lines.length * lineHeight + padY * 2;
-  const shadow = Math.round(fontSize * 0.16); // offset drop shadow
+  const shadow = Math.round(fontSize * 0.18); // offset drop shadow
   const totalW = boxW + shadow;
   const totalH = boxH + shadow;
+  const inset = 7;
   const textLines = lines
-    .map((l, i) => `<text x="${padX}" y="${padY + fontSize + i * lineHeight}" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="700" fill="#111111">${esc(l)}</text>`)
+    .map((l, i) => `<text x="${padX}" y="${padY + fontSize + i * lineHeight}" font-family="${FONT_BODY}" font-weight="700" font-size="${fontSize}" fill="#111111">${esc(l)}</text>`)
     .join("\n    ");
   return {
     svg: Buffer.from(`<svg width="${totalW}" height="${totalH}" xmlns="http://www.w3.org/2000/svg">
-  <rect x="${shadow}" y="${shadow}" width="${boxW}" height="${boxH}" rx="3" fill="rgba(0,0,0,0.55)"/>
-  <rect x="0" y="0" width="${boxW}" height="${boxH}" rx="3" fill="#ffffff" stroke="#000000" stroke-width="3"/>
+  <rect x="${shadow}" y="${shadow}" width="${boxW}" height="${boxH}" rx="3" fill="rgba(0,0,0,0.5)"/>
+  <rect x="1.75" y="1.75" width="${boxW - 3.5}" height="${boxH - 3.5}" rx="3" fill="#ffffff" stroke="#000000" stroke-width="3.5"/>
+  <rect x="${inset}" y="${inset}" width="${boxW - inset * 2}" height="${boxH - inset * 2}" rx="2" fill="none" stroke="#000000" stroke-width="1.2" opacity="0.5"/>
   ${textLines}
 </svg>`),
     height: totalH,
@@ -73,26 +80,38 @@ function captionSvg(text, width, fontSize = 34, maxCharsPerLine = 40) {
 }
 
 // Classic speech bubble: white, bold black outline + tail, bold black text.
-function speechSvg(text, width, fontSize = 30, maxCharsPerLine = 38, tailSide = "left") {
+// Sharp speech bubble: one rounded-rect-with-tail path so the tail merges
+// seamlessly into the outline. Comic-font black text.
+function speechSvg(text, width, fontSize = 32, maxCharsPerLine = 30, tailSide = "left") {
   const lines = wrapText(text, maxCharsPerLine);
-  const lineHeight = fontSize * 1.3;
-  const padX = 24, padY = 18;
-  const bubbleHeight = lines.length * lineHeight + padY * 2;
-  const tailHeight = 28;
-  const totalHeight = bubbleHeight + tailHeight;
-  const tailX = tailSide === "left" ? width * 0.25 : width * 0.7;
-  const tail = `<polygon points="${tailX - 12},${bubbleHeight - 2} ${tailX + 12},${bubbleHeight - 2} ${tailX - 22},${bubbleHeight + tailHeight}" fill="white" stroke="black" stroke-width="3"/>`;
+  const lineHeight = fontSize * 1.26;
+  const padX = 28, padY = 22;
+  const W = width;
+  const bubbleH = lines.length * lineHeight + padY * 2;
+  const r = 24;   // corner radius
+  const td = 30;  // tail depth
+  const tw = 32;  // tail base width
+  const baseX = tailSide === "left" ? W * 0.26 : W * 0.62;
+  const tipX = tailSide === "left" ? baseX - 24 : baseX + tw + 24;
+  const totalH = bubbleH + td;
+  const d = [
+    `M ${r} 1.75`, `H ${(W - r).toFixed(1)}`,
+    `A ${r} ${r} 0 0 1 ${(W - 1.75).toFixed(1)} ${r}`, `V ${(bubbleH - r).toFixed(1)}`,
+    `A ${r} ${r} 0 0 1 ${(W - r).toFixed(1)} ${(bubbleH - 1.75).toFixed(1)}`,
+    `H ${(baseX + tw).toFixed(1)}`, `L ${tipX.toFixed(1)} ${(bubbleH + td).toFixed(1)}`, `L ${baseX.toFixed(1)} ${(bubbleH - 1.75).toFixed(1)}`,
+    `H ${r}`, `A ${r} ${r} 0 0 1 1.75 ${(bubbleH - r).toFixed(1)}`, `V ${r}`,
+    `A ${r} ${r} 0 0 1 ${r} 1.75`, `Z`,
+  ].join(" ");
   const textLines = lines
-    .map((l, i) => `<text x="${padX}" y="${padY + fontSize + i * lineHeight}" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="bold" fill="black">${esc(l)}</text>`)
+    .map((l, i) => `<text x="${padX}" y="${padY + fontSize + i * lineHeight}" font-family="${FONT_BODY}" font-weight="700" font-size="${fontSize}" fill="#000000">${esc(l)}</text>`)
     .join("\n    ");
   return {
-    svg: Buffer.from(`<svg width="${width}" height="${totalHeight}" xmlns="http://www.w3.org/2000/svg">
-  <rect x="2" y="2" width="${width - 4}" height="${bubbleHeight - 2}" rx="20" fill="white" stroke="black" stroke-width="3"/>
-  ${tail}
+    svg: Buffer.from(`<svg width="${W + 4}" height="${totalH + 4}" xmlns="http://www.w3.org/2000/svg">
+  <path d="${d}" fill="#ffffff" stroke="#000000" stroke-width="3.5" stroke-linejoin="round"/>
   ${textLines}
 </svg>`),
-    height: totalHeight,
-    width,
+    height: totalH + 4,
+    width: W + 4,
   };
 }
 
@@ -100,7 +119,7 @@ function sfxSvg(text, width, fontSize = 52) {
   const height = fontSize * 1.6;
   return {
     svg: Buffer.from(`<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-  <text x="${width / 2}" y="${fontSize * 1.15}" font-family="Impact, 'Arial Black', sans-serif" font-size="${fontSize}" font-weight="bold" fill="#ff2255" stroke="#220011" stroke-width="2" text-anchor="middle" letter-spacing="4">${esc(text)}</text>
+  <text x="${width / 2}" y="${fontSize * 1.18}" font-family="${FONT_DISPLAY}, Impact, sans-serif" font-size="${fontSize}" fill="#ff2a3a" stroke="#1a0008" stroke-width="2.5" text-anchor="middle" letter-spacing="2">${esc(text)}</text>
 </svg>`),
     height,
     width,
@@ -111,7 +130,7 @@ function titleSvg(text, width, fontSize = 60, color = "#bf5fff") {
   const height = fontSize * 1.6;
   return {
     svg: Buffer.from(`<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-  <text x="${width / 2}" y="${fontSize * 1.15}" font-family="Impact, 'Arial Black', sans-serif" font-size="${fontSize}" font-weight="bold" fill="${color}" stroke="black" stroke-width="3" text-anchor="middle" letter-spacing="6">${esc(text)}</text>
+  <text x="${width / 2}" y="${fontSize * 1.18}" font-family="${FONT_DISPLAY}, Impact, sans-serif" font-size="${fontSize}" fill="${color}" stroke="black" stroke-width="3" text-anchor="middle" letter-spacing="3">${esc(text)}</text>
 </svg>`),
     height,
     width,
@@ -122,7 +141,7 @@ function subtitleSvg(text, width, fontSize = 30, color = "white") {
   const height = fontSize * 1.6;
   return {
     svg: Buffer.from(`<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-  <text x="${width / 2}" y="${fontSize * 1.15}" font-family="Georgia, 'Times New Roman', serif" font-size="${fontSize}" font-style="italic" fill="${color}" text-anchor="middle">${esc(text)}</text>
+  <text x="${width / 2}" y="${fontSize * 1.15}" font-family="${FONT_BODY}" font-weight="700" font-size="${fontSize}" fill="${color}" text-anchor="middle">${esc(text)}</text>
 </svg>`),
     height,
     width,

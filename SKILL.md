@@ -23,6 +23,7 @@ The scripts need three npm packages. Install them **once** in this skill folder
 ```bash
 cd ~/.claude/skills/comics-maker      # Windows: C:\Users\<you>\.claude\skills\comics-maker
 npm install
+node scripts/install-fonts.mjs        # installs the bundled comic lettering fonts (Bangers, Comic Neue, Luckiest Guy)
 ```
 
 Then set up whichever **backend** you'll generate art with (see Backends below):
@@ -140,6 +141,24 @@ Each **overlay**: `{ type, text, x, y, width, fontSize, wrap, tail, color }`
 - `x`, `y` — top-left position as a **fraction** of page width/height (0–1).
 - `width` — overlay width in pixels. `wrap` — max characters per line.
 - `tail` — `"left"` or `"right"` (speech only). `color` — title/subtitle color.
+
+## Avoiding photo-stitched faces (gpt2)
+
+`gpt2` `edit` mode can keep a *photographic* face on otherwise-drawn art (a stitched look).
+Two defenses, both built in:
+1. The prompt wrapper tells the model to use the reference **only for likeness** and to
+   **fully redraw** the face in inked, cel-shaded comic style (no photo compositing).
+2. Best fix: make a **comic-style reference** once, then point `refPhotos` at *that* instead
+   of the raw photo — the model then matches a drawing, not a photo. Generate it with a quick
+   one-off (upper-body portrait, "bold inked outlines, flat cel shading, NOT a photo"), eyeball
+   it, then use it as the reference for every page.
+
+## Lettering / fonts
+- `assemble.mjs` uses **Comic Neue** for captions + dialogue and **Bangers** for SFX + titles
+  (run `scripts/install-fonts.mjs` first). Override per project with
+  `fonts: { body: "...", display: "..." }` in the config (any installed font family).
+- Captions = white box + black border + thin inner keyline + drop shadow; speech bubbles are a
+  single rounded-rect-with-tail path so the tail merges cleanly into the outline.
 
 ## Notes
 - Images come out ~1792×2400 px at `3:4` / `2K`. Position overlays with fractions so they

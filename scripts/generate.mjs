@@ -140,12 +140,17 @@ function generateViaCodex(job) {
   const out = job.outputPath.replace(/\\/g, "/");
   const hint = ASPECT_HINT[job.aspect || DEFAULT_ASPECT] || "a tall vertical portrait page";
   const mode = useRef
-    ? "You have a photo attached (the recurring hero character). Use your built-in image_gen tool in EDIT mode on that attached photo"
+    ? "You have an image attached (the recurring hero character). Use your built-in image_gen tool in EDIT mode, using the attached image as the character's identity reference"
     : "Use your built-in image_gen tool to generate";
   const instruction =
     `${mode} to create the following comic book art as ${hint}. ` +
-    `It must be a drawn graphic-novel illustration, NOT a photo. ` +
-    (useRef ? "Keep the man's facial identity and likeness from the attached photo. " : "") +
+    `It must be a fully drawn graphic-novel illustration, NOT a photo and NOT a photo-collage. ` +
+    (useRef
+      ? "Use the attachment ONLY for the character's likeness (face shape, beard, hairstyle, ear gauges). " +
+        "FULLY REDRAW the person as a comic illustration with bold inked outlines and flat cel-shaded coloring — " +
+        "do NOT paste, composite, or trace the photographic face. The face must be hand-drawn in the exact same " +
+        "inked, cel-shaded comic style as the rest of the panel, so it blends in seamlessly (no realistic photo skin texture). "
+      : "") +
     `\n\nART DIRECTION:\n${job.prompt}\n\n` +
     `Only render text that the art direction explicitly asks for (a title logo, SFX, signage). ` +
     `Otherwise leave clean negative space and do NOT invent caption boxes, narration boxes, or speech bubbles. ` +

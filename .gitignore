@@ -6,11 +6,12 @@
 # deps
 node_modules/
 
-# generated comic working files (keep the repo about the skill, not one comic)
-Pages/
-Assembled/
-Character_Sheets/
-Assets/
+# generated comic working files (keep the repo about the skill, not one comic).
+# These live in external project folders; the skill's own bundled assets/ is kept.
+/Pages/
+/Assembled/
+/Character_Sheets/
+/Assets/
 *.pdf
 
 # os / editor noise
