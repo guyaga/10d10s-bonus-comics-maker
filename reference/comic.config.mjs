@@ -19,6 +19,12 @@ const charDesc =
 export default {
   title: "The Debugger - Issue 1",
   // base: defaults to the project dir you pass on the command line.
+
+  // Art backend. "gemini" (default, fast, needs GEMINI_API_KEY) or "gpt2" (sharper +
+  // crisper in-art text; free via the Codex CLI's built-in image_gen on a ChatGPT login).
+  // backend: "gpt2",
+  // gpt2: { mode: "codex", model: "gpt-5.5" },
+
   refPhotos: ["Assets/hero-reference.jpg"], // <-- put YOUR hero photo here
   defaultAspect: "3:4",
   imageSize: "2K",

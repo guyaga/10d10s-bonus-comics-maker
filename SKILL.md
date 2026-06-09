@@ -25,11 +25,27 @@ cd ~/.claude/skills/comics-maker      # Windows: C:\Users\<you>\.claude\skills\c
 npm install
 ```
 
-Set the image key (the same one used across the course):
+Then set up whichever **backend** you'll generate art with (see Backends below):
 
-```bash
-export GEMINI_API_KEY=your-key        # PowerShell: $env:GEMINI_API_KEY="your-key"
-```
+- **gemini** (default): `export GEMINI_API_KEY=your-key`  (PowerShell: `$env:GEMINI_API_KEY="..."`)
+- **gpt2** (sharper, free): just a logged-in `codex` CLI on a ChatGPT account
+  (`codex login`). No API key billed — it drives Codex's built-in `image_gen` tool.
+
+## Backends
+
+Set `backend: "gemini" | "gpt2"` in the config (or per page). Both feed the reference
+photo so the hero stays consistent.
+
+| Backend | Engine | Notes |
+|---|---|---|
+| `gemini` (default) | Gemini 3 Pro Image via `@google/genai` | Fast (~seconds/page). Needs `GEMINI_API_KEY`. |
+| `gpt2` | OpenAI image model via the **Codex CLI's built-in `image_gen`** (`codex exec -m gpt-5.5`) | **Sharper line work and crisper in-art text** (titles, SFX, signage). ~1–2 min/page. **Free** on a ChatGPT-account `codex` login — no `OPENAI_API_KEY` billed. |
+
+`gpt2` options live under a `gpt2` config key: `{ mode, model, codexJs }`.
+- `mode`: `"codex"` (default, free, built-in tool) or `"api"` (paid `gpt-image-2` via the
+  Codex `image_gen.py` fallback — needs `OPENAI_API_KEY`).
+- `model`: the Codex agent model, default `"gpt-5.5"` (must be allowed on your login).
+- `codexJs`: override the path to `@openai/codex/bin/codex.js` if auto-detect misses it.
 
 ## Workflow
 

@@ -47,39 +47,47 @@ function wrapText(text, maxChars) {
   return lines;
 }
 
-function captionSvg(text, width, fontSize = 28, maxCharsPerLine = 55) {
+// Classic comic narrator caption: white box, bold black border + drop shadow,
+// bold black text. Big and legible.
+function captionSvg(text, width, fontSize = 34, maxCharsPerLine = 40) {
   const lines = wrapText(text, maxCharsPerLine);
-  const lineHeight = fontSize * 1.35;
-  const padX = 20, padY = 14;
-  const boxHeight = lines.length * lineHeight + padY * 2;
+  const lineHeight = fontSize * 1.3;
+  const padX = 26, padY = 18;
+  const boxW = width;
+  const boxH = lines.length * lineHeight + padY * 2;
+  const shadow = Math.round(fontSize * 0.16); // offset drop shadow
+  const totalW = boxW + shadow;
+  const totalH = boxH + shadow;
   const textLines = lines
-    .map((l, i) => `<text x="${padX}" y="${padY + fontSize + i * lineHeight}" font-family="Georgia, 'Times New Roman', serif" font-size="${fontSize}" font-style="italic" fill="white">${esc(l)}</text>`)
+    .map((l, i) => `<text x="${padX}" y="${padY + fontSize + i * lineHeight}" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="700" fill="#111111">${esc(l)}</text>`)
     .join("\n    ");
   return {
-    svg: Buffer.from(`<svg width="${width}" height="${boxHeight}" xmlns="http://www.w3.org/2000/svg">
-  <rect x="0" y="0" width="${width}" height="${boxHeight}" rx="4" fill="rgba(80, 0, 120, 0.88)" stroke="#bf5fff" stroke-width="2"/>
+    svg: Buffer.from(`<svg width="${totalW}" height="${totalH}" xmlns="http://www.w3.org/2000/svg">
+  <rect x="${shadow}" y="${shadow}" width="${boxW}" height="${boxH}" rx="3" fill="rgba(0,0,0,0.55)"/>
+  <rect x="0" y="0" width="${boxW}" height="${boxH}" rx="3" fill="#ffffff" stroke="#000000" stroke-width="3"/>
   ${textLines}
 </svg>`),
-    height: boxHeight,
-    width,
+    height: totalH,
+    width: totalW,
   };
 }
 
-function speechSvg(text, width, fontSize = 26, maxCharsPerLine = 44, tailSide = "left") {
+// Classic speech bubble: white, bold black outline + tail, bold black text.
+function speechSvg(text, width, fontSize = 30, maxCharsPerLine = 38, tailSide = "left") {
   const lines = wrapText(text, maxCharsPerLine);
-  const lineHeight = fontSize * 1.35;
-  const padX = 22, padY = 16;
+  const lineHeight = fontSize * 1.3;
+  const padX = 24, padY = 18;
   const bubbleHeight = lines.length * lineHeight + padY * 2;
-  const tailHeight = 24;
+  const tailHeight = 28;
   const totalHeight = bubbleHeight + tailHeight;
   const tailX = tailSide === "left" ? width * 0.25 : width * 0.7;
-  const tail = `<polygon points="${tailX - 10},${bubbleHeight} ${tailX + 10},${bubbleHeight} ${tailX - 20},${bubbleHeight + tailHeight}" fill="white" stroke="black" stroke-width="2"/>`;
+  const tail = `<polygon points="${tailX - 12},${bubbleHeight - 2} ${tailX + 12},${bubbleHeight - 2} ${tailX - 22},${bubbleHeight + tailHeight}" fill="white" stroke="black" stroke-width="3"/>`;
   const textLines = lines
     .map((l, i) => `<text x="${padX}" y="${padY + fontSize + i * lineHeight}" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="bold" fill="black">${esc(l)}</text>`)
     .join("\n    ");
   return {
     svg: Buffer.from(`<svg width="${width}" height="${totalHeight}" xmlns="http://www.w3.org/2000/svg">
-  <rect x="2" y="2" width="${width - 4}" height="${bubbleHeight - 2}" rx="18" fill="white" stroke="black" stroke-width="2.5"/>
+  <rect x="2" y="2" width="${width - 4}" height="${bubbleHeight - 2}" rx="20" fill="white" stroke="black" stroke-width="3"/>
   ${tail}
   ${textLines}
 </svg>`),

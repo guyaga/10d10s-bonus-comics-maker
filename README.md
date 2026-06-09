@@ -15,9 +15,17 @@ It builds on the course's image day:
 | Step | Tool | Course day |
 |---|---|---|
 | Plan the issue | `COMIC_PLAN.md` (character sheet + page-by-page script) | — |
-| Generate the art | **Gemini 3 Pro Image** (Nano Banana Pro), photo on every panel | [Day 1: Image Generation](https://github.com/guyaga/10d10s-day01-image-generation) |
-| Letter the pages | `sharp` + hand-built SVG (captions, speech bubbles, SFX) | — |
+| Generate the art | **Gemini 3 Pro Image** (fast) or **GPT Image via the Codex CLI** (sharper, free on a ChatGPT login) — photo on every panel | [Day 1: Image Generation](https://github.com/guyaga/10d10s-day01-image-generation) |
+| Letter the pages | `sharp` + hand-built SVG (classic white caption boxes, speech bubbles, SFX) | — |
 | Bind the book | `pdfkit` → US-comic-sized PDF | — |
+
+### Two art backends (`backend: "gemini" | "gpt2"`)
+
+- **`gemini`** (default) — Gemini 3 Pro Image. Fast (~seconds/page). Needs `GEMINI_API_KEY`.
+- **`gpt2`** — drives the **Codex CLI's built-in `image_gen`** tool (`codex exec -m gpt-5.5`).
+  Noticeably **sharper line work and crisper in-art text** (titles, SFX, signage), ~1–2 min/page,
+  and **free** on a ChatGPT-account `codex` login (no `OPENAI_API_KEY` billed). The reference
+  photo is passed with `-i` so the hero's face carries across every page.
 
 ---
 
@@ -67,9 +75,11 @@ node scripts/make-pdf.mjs "My Comic"
 
 ## 🔑 Keys
 
-| Key | For | Required? |
+| Key / login | For | Required? |
 |---|---|---|
-| `GEMINI_API_KEY` | Gemini 3 Pro Image art generation | yes |
+| `GEMINI_API_KEY` | the `gemini` backend (Gemini 3 Pro Image) | for `gemini` |
+| `codex` CLI logged in (ChatGPT account) | the `gpt2` backend (free built-in `image_gen`) | for `gpt2` |
+| `OPENAI_API_KEY` | only `gpt2` with `mode:"api"` (paid gpt-image-2) | optional |
 
 ---
 
