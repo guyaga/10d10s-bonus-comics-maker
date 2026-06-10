@@ -115,11 +115,11 @@ Lays every assembled page onto a US-comic-sized page (6.625 × 10.25 in by defau
 ```bash
 node ~/.claude/skills/comics-maker/scripts/build-site.mjs "<project-dir>"
 ```
-Exports a **single self-contained HTML file** (images embedded) — a page-flipping reader
-with arrow/click/swipe/dot navigation, progress bar, a subtle animated background, brand
-colors (from `lettering.accent`/`boxFill`) and a header CTA. Configure via
-`site: { ctaUrl, ctaText, subtitle, endCta }` (set `endCta:true` for a floating end-page
-call-to-action; omit when the last page is already a CTA). Works opened directly or hosted.
+Exports a **single self-contained HTML file** (images embedded, no dependencies) — a
+realistic **single-page book reader**: each page curls around the spine (CSS 3D) to reveal
+the next, with arrow/click/swipe/dot navigation, progress bar, a subtle animated
+background, brand colors (from `lettering.accent`/`boxFill`) and a header CTA. Configure
+via `site: { ctaUrl, ctaText }`. Works opened directly or hosted.
 
 ## Config reference (`comic.config.mjs`)
 

@@ -179,7 +179,9 @@ function pageNumSvg(num) {
 }
 
 // ---------- auto sizing + placement ----------
-const emFactor = (font) => (font === FONT_DISPLAY || /bangers/i.test(font) ? 0.46 : 0.54);
+// Average glyph advance as a fraction of font size. Deliberately generous so boxes
+// never clip the text (a touch of extra padding is fine; clipping is not).
+const emFactor = (font) => (font === FONT_DISPLAY || /bangers/i.test(font) ? 0.52 : 0.62);
 
 // font size proportional to image width, clamped
 function autoFont(type, w) {
@@ -192,14 +194,15 @@ function autoFont(type, w) {
 function fitBox(text, type, fontSize, w, maxFrac) {
   const font = type === "sfx" || type === "title" ? THEME.display : THEME.body;
   const em = emFactor(font);
-  const padL = type === "caption" ? captionPadL(fontSize) : 28;
-  const padR = 26;
-  const maxTextPx = (maxFrac || 0.5) * w - padL - padR;
+  const padL = type === "caption" ? captionPadL(fontSize) : 30;
+  const padR = 30;
+  const safety = Math.round(fontSize * 0.4); // extra right room so glyphs never clip
+  const maxTextPx = (maxFrac || 0.55) * w - padL - padR;
   const wrapChars = Math.max(6, Math.floor(maxTextPx / (fontSize * em)));
   const lines = wrapText(text, wrapChars);
   const longest = Math.max(...lines.map((l) => l.length));
   const textPx = Math.ceil(longest * fontSize * em);
-  const boxW = Math.min(Math.round(w * 0.92), textPx + padL + padR);
+  const boxW = Math.min(Math.round(w * 0.95), textPx + padL + padR + safety);
   return { boxW, wrapChars };
 }
 
