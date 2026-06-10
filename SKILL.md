@@ -135,12 +135,15 @@ Each **page**: `{ id, folder, file, aspect, useRef, prompt, num, overlays }`
 - `num` — page number for lettering/order (defaults to array position).
 - `overlays` — array of overlay objects.
 
-Each **overlay**: `{ type, text, x, y, width, fontSize, wrap, tail, color }`
-- `type` — `"caption"` (purple narrator box), `"speech"` (white bubble w/ tail),
-  `"sfx"` (red glitch text), `"title"`, `"subtitle"`.
-- `x`, `y` — top-left position as a **fraction** of page width/height (0–1).
-- `width` — overlay width in pixels. `wrap` — max characters per line.
-- `tail` — `"left"` or `"right"` (speech only). `color` — title/subtitle color.
+Each **overlay**: `{ type, text, at, band, maxWidth, x, y, width, fontSize, wrap, tail, color }`
+- `type` — `"caption"` (white narrator box), `"speech"` (white bubble w/ tail),
+  `"sfx"` (display text), `"title"`, `"subtitle"`.
+- `at: "auto"` — auto-place into the emptiest region (recommended for captions/speech).
+  `band: [yTop, yBottom]` — constrain auto-placement to a vertical zone/panel (fractions).
+- `maxWidth` — cap box width as a fraction of page width (default 0.5); box hugs the text.
+- `x`, `y` — manual top-left as a **fraction** (0–1); `x:null` centers. Overrides `at`.
+- `width`/`fontSize`/`wrap` — manual overrides (otherwise auto from image size).
+- `tail` — `"left"`/`"right"` (speech; auto when `at:"auto"`). `color` — title/subtitle color.
 
 ## Avoiding photo-stitched faces (gpt2)
 
@@ -159,6 +162,17 @@ Two defenses, both built in:
   `fonts: { body: "...", display: "..." }` in the config (any installed font family).
 - Captions = white box + black border + thin inner keyline + drop shadow; speech bubbles are a
   single rounded-rect-with-tail path so the tail merges cleanly into the outline.
+
+### Sizing & placement
+Overlays size and place themselves — you rarely hand-tune coordinates:
+- **Auto size**: omit `fontSize`/`width` and the box scales to the image and **hugs its text**
+  (no half-empty boxes). Cap the width with `maxWidth` (fraction of page width, default 0.5).
+- **Auto place** (`at: "auto"`): the engine scans the page for the darkest, flattest (emptiest)
+  region, avoids overlapping other overlays, keeps off centered faces, and drops the box there.
+  Constrain it to a panel/zone with `band: [yTop, yBottom]` (fractions). For speech, the tail
+  side is chosen automatically to point inward toward the figure.
+- **Manual** still works: give `x`/`y` (fractions; `x:null` centers) for full control — used for
+  deliberate layouts like a cover logo or a CTA banner.
 
 ## Notes
 - Images come out ~1792×2400 px at `3:4` / `2K`. Position overlays with fractions so they

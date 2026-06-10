@@ -160,6 +160,66 @@ function pageNumSvg(num) {
   };
 }
 
+// ---------- auto sizing + placement ----------
+const emFactor = (font) => (font === FONT_DISPLAY || /bangers/i.test(font) ? 0.46 : 0.54);
+
+// font size proportional to image width, clamped
+function autoFont(type, w) {
+  const frac = { caption: 0.028, speech: 0.030, sfx: 0.060, title: 0.072, subtitle: 0.026 }[type] || 0.028;
+  const cap = { title: 110, sfx: 90 }[type] || 62;
+  return Math.max(20, Math.min(Math.round(w * frac), cap));
+}
+
+// wrap to a target width and return a box width that hugs the text (no half-empty boxes)
+function fitBox(text, type, fontSize, w, maxFrac) {
+  const font = type === "sfx" || type === "title" ? FONT_DISPLAY : FONT_BODY;
+  const em = emFactor(font);
+  const padX = 28;
+  const maxTextPx = (maxFrac || 0.5) * w - 2 * padX;
+  const wrapChars = Math.max(6, Math.floor(maxTextPx / (fontSize * em)));
+  const lines = wrapText(text, wrapChars);
+  const longest = Math.max(...lines.map((l) => l.length));
+  const textPx = Math.ceil(longest * fontSize * em);
+  const boxW = Math.min(Math.round(w * 0.9), textPx + 2 * padX);
+  return { boxW, wrapChars };
+}
+
+// coarse greyscale grid of the page for content-aware placement
+async function lumGrid(src, GW, GH) {
+  const { data } = await sharp(src).greyscale().resize(GW, GH, { fit: "fill" }).raw().toBuffer({ resolveWithObject: true });
+  return { data, GW, GH };
+}
+function regionStats(L, w, h, left, top, bw, bh) {
+  const gx0 = Math.max(0, Math.floor((left / w) * L.GW)), gy0 = Math.max(0, Math.floor((top / h) * L.GH));
+  const gx1 = Math.min(L.GW - 1, Math.ceil(((left + bw) / w) * L.GW)), gy1 = Math.min(L.GH - 1, Math.ceil(((top + bh) / h) * L.GH));
+  let sum = 0, sum2 = 0, n = 0;
+  for (let gy = gy0; gy <= gy1; gy++) for (let gx = gx0; gx <= gx1; gx++) { const v = L.data[gy * L.GW + gx]; sum += v; sum2 += v * v; n++; }
+  if (!n) return { mean: 255, std: 255 };
+  const mean = sum / n;
+  return { mean, std: Math.sqrt(Math.max(0, sum2 / n - mean * mean)) };
+}
+const overlaps = (a, b, pad) => !(a.left + a.bw + pad <= b.left || b.left + b.bw + pad <= a.left || a.top + a.bh + pad <= b.top || b.top + b.bh + pad <= a.top);
+
+// scan candidate positions; prefer dark + flat (empty) regions, avoid overlaps & faces
+function autoPlace(L, w, h, bw, bh, band, placed) {
+  const margin = Math.round(w * 0.025);
+  const stepX = Math.max(10, Math.round(w * 0.035)), stepY = Math.max(10, Math.round(h * 0.022));
+  const yLo = Math.max(margin, band ? Math.round(band[0] * h) : margin);
+  const yHi = Math.min(h - bh - margin, (band ? Math.round(band[1] * h) : h - margin) - bh);
+  let best = { left: margin, top: yLo }, bestScore = Infinity;
+  for (let top = yLo; top <= Math.max(yLo, yHi); top += stepY) {
+    for (let left = margin; left <= w - bw - margin; left += stepX) {
+      const { mean, std } = regionStats(L, w, h, left, top, bw, bh);
+      let score = mean + std * 0.8;
+      for (const p of placed) if (overlaps({ left, top, bw, bh }, p, Math.round(h * 0.012))) score += 1e6;
+      const cy = (top + bh / 2) / h;
+      if (!band && cy > 0.34 && cy < 0.66) score += 45; // keep off centered faces
+      if (score < bestScore) { bestScore = score; best = { left, top }; }
+    }
+  }
+  return best;
+}
+
 // ---------- assemble one page ----------
 async function assemblePage(page, num) {
   const src = path.join(BASE, "Pages", page.folder || page.id, page.file);
@@ -174,25 +234,43 @@ async function assemblePage(page, num) {
   const meta = await img.metadata();
   const w = meta.width, h = meta.height;
   const composites = [];
+  const placed = []; // {left,top,bw,bh} of overlays already positioned this page
+  const L = await lumGrid(src, 80, 120);
+
+  // build an overlay's SVG at a given tail side (size auto unless overridden)
+  const build = (ov, fontSize, tailSide) => {
+    if (ov.type === "caption") { const { boxW, wrapChars } = fitBox(ov.text, "caption", fontSize, w, ov.maxWidth); return captionSvg(ov.text, ov.width || boxW, fontSize, ov.wrap || wrapChars); }
+    if (ov.type === "speech") { const { boxW, wrapChars } = fitBox(ov.text, "speech", fontSize, w, ov.maxWidth); return speechSvg(ov.text, ov.width || boxW, fontSize, ov.wrap || wrapChars, tailSide); }
+    if (ov.type === "sfx") return sfxSvg(ov.text, ov.width || Math.round(w * 0.8), fontSize);
+    if (ov.type === "title") return titleSvg(ov.text, ov.width || Math.round(w * 0.92), fontSize, ov.color || "#bf5fff");
+    if (ov.type === "subtitle") return subtitleSvg(ov.text, ov.width || Math.round(w * 0.92), fontSize, ov.color || "white");
+    return null;
+  };
 
   for (const ov of page.overlays || []) {
-    let svgObj;
-    const ovWidth = ov.width || Math.round(w * 0.85);
-    switch (ov.type) {
-      case "caption": svgObj = captionSvg(ov.text, ovWidth, ov.fontSize || 28, ov.wrap || 55); break;
-      case "speech": svgObj = speechSvg(ov.text, ovWidth, ov.fontSize || 26, ov.wrap || 44, ov.tail || "left"); break;
-      case "sfx": svgObj = sfxSvg(ov.text, ovWidth, ov.fontSize || 52); break;
-      case "title": svgObj = titleSvg(ov.text, ovWidth, ov.fontSize || 60, ov.color || "#bf5fff"); break;
-      case "subtitle": svgObj = subtitleSvg(ov.text, ovWidth, ov.fontSize || 30, ov.color || "white"); break;
-      default: continue;
+    const fontSize = ov.fontSize || autoFont(ov.type, w);
+    let side = ov.tail || "left";
+    let svgObj = build(ov, fontSize, side);
+    if (!svgObj) continue;
+
+    let left, top;
+    const auto = ov.at === "auto" && (ov.type === "caption" || ov.type === "speech");
+    if (auto) {
+      const band = ov.band || (ov.type === "speech" ? [0.02, 0.5] : null);
+      let pos = autoPlace(L, w, h, svgObj.width, svgObj.height, band, placed);
+      if (ov.type === "speech") {
+        const want = (pos.left + svgObj.width / 2) / w < 0.5 ? "right" : "left"; // tail points inward
+        if (want !== side) { side = want; svgObj = build(ov, fontSize, side); pos = autoPlace(L, w, h, svgObj.width, svgObj.height, band, placed); }
+      }
+      left = pos.left; top = pos.top;
+    } else {
+      left = ov.x != null ? Math.round(ov.x * w) : Math.round((w - svgObj.width) / 2);
+      top = ov.y != null ? Math.round(ov.y * h) : Math.round(h * 0.05);
     }
-    const left = ov.x != null ? Math.round(ov.x * w) : Math.round((w - svgObj.width) / 2);
-    const top = ov.y != null ? Math.round(ov.y * h) : Math.round(h * 0.05);
-    composites.push({
-      input: svgObj.svg,
-      top: Math.max(0, Math.min(top, h - svgObj.height)),
-      left: Math.max(0, Math.min(left, w - svgObj.width)),
-    });
+    left = Math.max(0, Math.min(left, w - svgObj.width));
+    top = Math.max(0, Math.min(top, h - svgObj.height));
+    composites.push({ input: svgObj.svg, top, left });
+    placed.push({ left, top, bw: svgObj.width, bh: svgObj.height });
   }
 
   const pn = pageNumSvg(num);
