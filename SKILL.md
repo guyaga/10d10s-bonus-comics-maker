@@ -157,11 +157,26 @@ Two defenses, both built in:
    it, then use it as the reference for every page.
 
 ## Lettering / fonts
-- `assemble.mjs` uses **Comic Neue** for captions + dialogue and **Bangers** for SFX + titles
-  (run `scripts/install-fonts.mjs` first). Override per project with
-  `fonts: { body: "...", display: "..." }` in the config (any installed font family).
-- Captions = white box + black border + thin inner keyline + drop shadow; speech bubbles are a
-  single rounded-rect-with-tail path so the tail merges cleanly into the outline.
+- Default = classic comic: **Comic Neue** captions/dialogue, **Bangers** SFX/titles, white box,
+  black border, drop shadow (run `scripts/install-fonts.mjs` first — bundles Comic Neue, Bangers,
+  Luckiest Guy, Space Grotesk).
+- Speech bubbles are a single rounded-rect-with-tail path so the tail merges cleanly.
+
+### Lettering theme (on-brand looks)
+Set a `lettering` object in the config to restyle every caption/bubble at once:
+```js
+lettering: {
+  font: "Space Grotesk",   // caption + dialogue font (display: SFX/title font)
+  boxFill: "#F5F3EE",      // box color (cream)
+  textColor: "#111111",
+  border: "#111111", borderW: 2.5,
+  accent: "#E63B2E",       // optional signal-red left accent bar on captions
+  shadow: false,           // drop the drop-shadow for a Swiss/editorial feel
+  radius: 4,
+}
+```
+The bundled fonts include **Space Grotesk** (a clean brand sans). Defaults reproduce the classic
+white comic box, so existing comics are unchanged.
 
 ### Sizing & placement
 Overlays size and place themselves — you rarely hand-tune coordinates:

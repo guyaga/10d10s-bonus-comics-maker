@@ -21,10 +21,22 @@ const BASE = config.base ? path.resolve(config.base) : projectDir;
 const OUT = path.join(BASE, "Assembled");
 if (!fs.existsSync(OUT)) fs.mkdirSync(OUT, { recursive: true });
 
-// Comic lettering fonts (installed under assets/fonts; override via config.fonts).
-// FONT_BODY = captions + dialogue, FONT_DISPLAY = SFX + titles.
-const FONT_BODY = config.fonts?.body || "Comic Neue";
-const FONT_DISPLAY = config.fonts?.display || "Bangers";
+// Lettering theme. Defaults = classic comic (white box, Comic Neue, Bangers, shadow).
+// Override via config.lettering for an on-brand look, e.g.:
+//   lettering: { font:"Space Grotesk", boxFill:"#F5F3EE", border:"#111111",
+//                textColor:"#111111", accent:"#E63B2E", shadow:false, radius:4 }
+const THEME = {
+  body: config.lettering?.font || config.fonts?.body || "Comic Neue",
+  display: config.lettering?.display || config.fonts?.display || "Bangers",
+  boxFill: config.lettering?.boxFill || "#ffffff",
+  textColor: config.lettering?.textColor || "#111111",
+  border: config.lettering?.border || "#000000",
+  borderW: config.lettering?.borderW ?? 3.5,
+  accent: config.lettering?.accent || null, // optional red left-bar on captions
+  shadow: config.lettering?.shadow ?? true,
+  radius: config.lettering?.radius ?? 3,
+};
+const FONT_BODY = THEME.body, FONT_DISPLAY = THEME.display;
 
 // ---------- SVG helpers ----------
 function esc(str) {
@@ -52,30 +64,36 @@ function wrapText(text, maxChars) {
   return lines;
 }
 
-// Classic comic narrator caption: white box, bold black border + thin inner
-// keyline + drop shadow, comic-font black text. Big and legible.
+// caption left padding (accounts for the optional accent bar)
+const captionBarW = (fontSize) => (THEME.accent ? Math.round(fontSize * 0.3) : 0);
+const captionPadL = (fontSize) => 24 + (THEME.accent ? captionBarW(fontSize) + 12 : 0);
+
+// Narrator caption box. Themeable: fill, border, optional red accent bar, drop
+// shadow on/off, corner radius. Default = classic white comic box.
 function captionSvg(text, width, fontSize = 32, maxCharsPerLine = 34) {
   const lines = wrapText(text, maxCharsPerLine);
   const lineHeight = fontSize * 1.26;
-  const padX = 28, padY = 20;
+  const padY = 20, padL = captionPadL(fontSize);
   const boxW = width;
   const boxH = lines.length * lineHeight + padY * 2;
-  const shadow = Math.round(fontSize * 0.18); // offset drop shadow
-  const totalW = boxW + shadow;
-  const totalH = boxH + shadow;
-  const inset = 7;
+  const shadow = THEME.shadow ? Math.round(fontSize * 0.18) : 0;
+  const r = THEME.radius;
   const textLines = lines
-    .map((l, i) => `<text x="${padX}" y="${padY + fontSize + i * lineHeight}" font-family="${FONT_BODY}" font-weight="700" font-size="${fontSize}" fill="#111111">${esc(l)}</text>`)
+    .map((l, i) => `<text x="${padL}" y="${padY + fontSize + i * lineHeight}" font-family="${THEME.body}" font-weight="700" font-size="${fontSize}" fill="${THEME.textColor}">${esc(l)}</text>`)
     .join("\n    ");
+  const shadowRect = THEME.shadow ? `<rect x="${shadow}" y="${shadow}" width="${boxW}" height="${boxH}" rx="${r}" fill="rgba(0,0,0,0.5)"/>` : "";
+  const bar = THEME.accent ? `<rect x="1.75" y="1.75" width="${captionBarW(fontSize)}" height="${boxH - 3.5}" fill="${THEME.accent}"/>` : "";
+  const keyline = !THEME.accent ? `<rect x="7" y="7" width="${boxW - 14}" height="${boxH - 14}" rx="2" fill="none" stroke="${THEME.border}" stroke-width="1.2" opacity="0.5"/>` : "";
   return {
-    svg: Buffer.from(`<svg width="${totalW}" height="${totalH}" xmlns="http://www.w3.org/2000/svg">
-  <rect x="${shadow}" y="${shadow}" width="${boxW}" height="${boxH}" rx="3" fill="rgba(0,0,0,0.5)"/>
-  <rect x="1.75" y="1.75" width="${boxW - 3.5}" height="${boxH - 3.5}" rx="3" fill="#ffffff" stroke="#000000" stroke-width="3.5"/>
-  <rect x="${inset}" y="${inset}" width="${boxW - inset * 2}" height="${boxH - inset * 2}" rx="2" fill="none" stroke="#000000" stroke-width="1.2" opacity="0.5"/>
+    svg: Buffer.from(`<svg width="${boxW + shadow}" height="${boxH + shadow}" xmlns="http://www.w3.org/2000/svg">
+  ${shadowRect}
+  <rect x="1.75" y="1.75" width="${boxW - 3.5}" height="${boxH - 3.5}" rx="${r}" fill="${THEME.boxFill}" stroke="${THEME.border}" stroke-width="${THEME.borderW}"/>
+  ${bar}
+  ${keyline}
   ${textLines}
 </svg>`),
-    height: totalH,
-    width: totalW,
+    height: boxH + shadow,
+    width: boxW + shadow,
   };
 }
 
@@ -103,11 +121,11 @@ function speechSvg(text, width, fontSize = 32, maxCharsPerLine = 30, tailSide = 
     `A ${r} ${r} 0 0 1 ${r} 1.75`, `Z`,
   ].join(" ");
   const textLines = lines
-    .map((l, i) => `<text x="${padX}" y="${padY + fontSize + i * lineHeight}" font-family="${FONT_BODY}" font-weight="700" font-size="${fontSize}" fill="#000000">${esc(l)}</text>`)
+    .map((l, i) => `<text x="${padX}" y="${padY + fontSize + i * lineHeight}" font-family="${THEME.body}" font-weight="700" font-size="${fontSize}" fill="${THEME.textColor}">${esc(l)}</text>`)
     .join("\n    ");
   return {
     svg: Buffer.from(`<svg width="${W + 4}" height="${totalH + 4}" xmlns="http://www.w3.org/2000/svg">
-  <path d="${d}" fill="#ffffff" stroke="#000000" stroke-width="3.5" stroke-linejoin="round"/>
+  <path d="${d}" fill="${THEME.boxFill}" stroke="${THEME.border}" stroke-width="${THEME.borderW}" stroke-linejoin="round"/>
   ${textLines}
 </svg>`),
     height: totalH + 4,
@@ -130,7 +148,7 @@ function titleSvg(text, width, fontSize = 60, color = "#bf5fff") {
   const height = fontSize * 1.6;
   return {
     svg: Buffer.from(`<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-  <text x="${width / 2}" y="${fontSize * 1.18}" font-family="${FONT_DISPLAY}, Impact, sans-serif" font-size="${fontSize}" fill="${color}" stroke="black" stroke-width="3" text-anchor="middle" letter-spacing="3">${esc(text)}</text>
+  <text x="${width / 2}" y="${fontSize * 1.18}" font-family="${FONT_DISPLAY}, Impact, sans-serif" font-weight="700" font-size="${fontSize}" fill="${color}" stroke="black" stroke-width="3" text-anchor="middle" letter-spacing="3">${esc(text)}</text>
 </svg>`),
     height,
     width,
@@ -172,15 +190,16 @@ function autoFont(type, w) {
 
 // wrap to a target width and return a box width that hugs the text (no half-empty boxes)
 function fitBox(text, type, fontSize, w, maxFrac) {
-  const font = type === "sfx" || type === "title" ? FONT_DISPLAY : FONT_BODY;
+  const font = type === "sfx" || type === "title" ? THEME.display : THEME.body;
   const em = emFactor(font);
-  const padX = 28;
-  const maxTextPx = (maxFrac || 0.5) * w - 2 * padX;
+  const padL = type === "caption" ? captionPadL(fontSize) : 28;
+  const padR = 26;
+  const maxTextPx = (maxFrac || 0.5) * w - padL - padR;
   const wrapChars = Math.max(6, Math.floor(maxTextPx / (fontSize * em)));
   const lines = wrapText(text, wrapChars);
   const longest = Math.max(...lines.map((l) => l.length));
   const textPx = Math.ceil(longest * fontSize * em);
-  const boxW = Math.min(Math.round(w * 0.9), textPx + 2 * padX);
+  const boxW = Math.min(Math.round(w * 0.92), textPx + padL + padR);
   return { boxW, wrapChars };
 }
 
@@ -202,10 +221,11 @@ const overlaps = (a, b, pad) => !(a.left + a.bw + pad <= b.left || b.left + b.bw
 
 // scan candidate positions; prefer dark + flat (empty) regions, avoid overlaps & faces
 function autoPlace(L, w, h, bw, bh, band, placed) {
-  const margin = Math.round(w * 0.025);
-  const stepX = Math.max(10, Math.round(w * 0.035)), stepY = Math.max(10, Math.round(h * 0.022));
-  const yLo = Math.max(margin, band ? Math.round(band[0] * h) : margin);
-  const yHi = Math.min(h - bh - margin, (band ? Math.round(band[1] * h) : h - margin) - bh);
+  const mx = Math.round(w * 0.045), my = Math.round(h * 0.03); // edge breathing room
+  const margin = mx;
+  const stepX = Math.max(10, Math.round(w * 0.03)), stepY = Math.max(10, Math.round(h * 0.02));
+  const yLo = Math.max(my, band ? Math.round(band[0] * h) + Math.round(my * 0.5) : my);
+  const yHi = Math.min(h - bh - my, (band ? Math.round(band[1] * h) : h - my) - bh);
   let best = { left: margin, top: yLo }, bestScore = Infinity;
   for (let top = yLo; top <= Math.max(yLo, yHi); top += stepY) {
     for (let left = margin; left <= w - bw - margin; left += stepX) {
