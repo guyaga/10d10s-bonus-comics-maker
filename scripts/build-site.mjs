@@ -43,17 +43,8 @@ const AR = +(meta0.width / meta0.height).toFixed(4);
 // a dark blank page (so the cover-back / open-book empty side is dark, not white)
 const blank = "data:image/svg+xml;base64," + Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${meta0.width}" height="${meta0.height}"><rect width="100%" height="100%" fill="#0b0b0c"/></svg>`).toString("base64");
 const images = [];
-for (let i = 0; i < files.length; i++) {
-  let pipe = sharp(path.join(ASSEMBLED, files[i]));
-  // On the last page, dark-mask the lower CTA strip for the web build so the crisp,
-  // clickable HTML call-to-action replaces the baked-in one (the PDF keeps the baked CTA).
-  if (i === files.length - 1 && ctaUrl) {
-    const m = await sharp(path.join(ASSEMBLED, files[i])).metadata();
-    const top = Math.round(m.height * 0.7), bh = m.height - top;
-    const mask = Buffer.from(`<svg width="${m.width}" height="${bh}" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b0b0c" stop-opacity="0"/><stop offset="0.18" stop-color="#0b0b0c" stop-opacity="1"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/></svg>`);
-    pipe = pipe.composite([{ input: mask, top, left: 0 }]);
-  }
-  const buf = await pipe.resize({ width: 1200, withoutEnlargement: true }).jpeg({ quality: 86 }).toBuffer();
+for (const f of files) {
+  const buf = await sharp(path.join(ASSEMBLED, f)).resize({ width: 1200, withoutEnlargement: true }).jpeg({ quality: 86 }).toBuffer();
   images.push("data:image/jpeg;base64," + buf.toString("base64"));
 }
 
@@ -71,11 +62,14 @@ const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 const ctaHeader = ctaUrl ? `<a class="cta" href="${esc(ctaUrl)}" target="_blank" rel="noopener">${esc(ctaText || "Open")}</a>` : "";
 const readBtnTag = hasAudio ? `<button id="readbtn" class="readbtn" aria-label="Read aloud"><span class="ic">&#9658;</span>Read</button>` : "";
 const ctaShort = ctaUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+// Shown as a centered "you finished" card once the reader reaches the end / narration ends.
 const endCta = ctaUrl
-  ? `<div id="endcta" class="endcta">
-      <a class="endbtn" href="${esc(ctaUrl)}" target="_blank" rel="noopener">${esc(ctaText || "Join")} &rarr;</a>
+  ? `<div id="endcta" class="endcta"><div class="endinner">
+      <button class="endx" id="endx" aria-label="Close">&#215;</button>
+      <div class="endkicker">The end</div>
+      <a class="endbtn" href="${esc(ctaUrl)}" target="_blank" rel="noopener">${esc(ctaText || "Join the webinar")} &rarr;</a>
       <div class="endmeta">${ctaWhen ? `<span>${esc(ctaWhen)}</span>` : ""}<a href="${esc(ctaUrl)}" target="_blank" rel="noopener">${esc(ctaShort)}</a></div>
-    </div>`
+    </div></div>`
   : "";
 const flipCssTag = flipCss ? `<style>${flipCss}</style>` : `<link rel="stylesheet" href="${CDN}/src/Style/stPageFlip.css">`;
 const FLIPJS = "@@FLIP_ENGINE@@";
@@ -122,13 +116,18 @@ footer{display:flex;justify-content:center;align-items:center;gap:18px;padding:1
 .dot{width:9px;height:9px;border-radius:50%;border:0;background:rgba(245,243,238,.22);cursor:pointer;padding:0;transition:.2s}
 .dot.on{background:var(--accent);box-shadow:0 0 8px var(--accent);transform:scale(1.25)}
 .hint{position:fixed;bottom:14px;right:18px;font-family:"Space Mono",monospace;font-size:11px;color:#6c6a66;letter-spacing:.06em}
-.endcta{position:fixed;left:50%;bottom:50px;transform:translate(-50%,14px);opacity:0;pointer-events:none;transition:.45s cubic-bezier(.2,.7,.2,1);z-index:8;text-align:center;background:rgba(11,11,12,.78);backdrop-filter:blur(8px);border:1px solid rgba(230,59,46,.45);border-radius:14px;padding:14px 20px 12px}
-.endcta.show{opacity:1;pointer-events:auto;transform:translate(-50%,0)}
-.endbtn{display:inline-block;font-weight:700;text-transform:uppercase;letter-spacing:.07em;font-size:14px;color:#fff;background:var(--accent);padding:13px 24px;border-radius:9px;text-decoration:none;box-shadow:0 12px 30px rgba(230,59,46,.4)}
+.endcta{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(5,5,6,.6);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.4s}
+.endcta.show{opacity:1;pointer-events:auto}
+.endinner{position:relative;text-align:center;background:rgba(15,15,16,.94);border:1px solid rgba(230,59,46,.5);border-radius:18px;padding:30px 40px 26px;box-shadow:0 30px 80px rgba(0,0,0,.6);transform:translateY(12px);transition:.4s cubic-bezier(.2,.7,.2,1)}
+.endcta.show .endinner{transform:none}
+.endkicker{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:#8a8884;margin-bottom:16px}
+.endbtn{display:inline-block;font-weight:700;text-transform:uppercase;letter-spacing:.07em;font-size:15px;color:#fff;background:var(--accent);padding:15px 28px;border-radius:9px;text-decoration:none;box-shadow:0 14px 34px rgba(230,59,46,.4)}
 .endbtn:hover{filter:brightness(1.08)}
-.endmeta{margin-top:11px;font-family:"Space Mono",monospace;font-size:12px;color:#cfccc6;display:flex;gap:14px;justify-content:center;align-items:center;flex-wrap:wrap;letter-spacing:.04em}
+.endmeta{margin-top:15px;font-family:"Space Mono",monospace;font-size:12px;color:#cfccc6;display:flex;gap:14px;justify-content:center;align-items:center;flex-wrap:wrap;letter-spacing:.04em}
 .endmeta a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(230,59,46,.5)}
-@media(max-width:680px){.brand{font-size:12px}.nav{display:none}.cta{padding:8px 11px}.endcta{bottom:42px}}
+.endx{position:absolute;top:10px;right:14px;width:30px;height:30px;border:0;background:transparent;color:#9a9894;font-size:22px;line-height:1;cursor:pointer;border-radius:50%}
+.endx:hover{color:var(--cream)}
+@media(max-width:680px){.brand{font-size:12px}.nav{display:none}.cta{padding:8px 11px}.endinner{padding:26px 24px 22px;margin:0 16px}}
 </style>
 </head>
 <body>
@@ -160,10 +159,19 @@ var PAGES=${JSON.stringify(images)};var AUDIO=${JSON.stringify(audios)};var BLAN
 })();
 function startBook(){
   var el=document.getElementById('book'),stage=document.querySelector('.stage'),AR=${AR},pf=null,curIdx=0,N=PAGES.length;
-  var counter=document.getElementById('counter'),prog=document.getElementById('prog'),prev=document.getElementById('prev'),next=document.getElementById('next'),dots=document.getElementById('dots'),endcta=document.getElementById('endcta');
+  var counter=document.getElementById('counter'),prog=document.getElementById('prog'),prev=document.getElementById('prev'),next=document.getElementById('next'),dots=document.getElementById('dots'),endcta=document.getElementById('endcta'),endx=document.getElementById('endx');
+  var endScheduled=false,dismissed=false;
+  function showEnd(){if(endcta&&!dismissed)endcta.classList.add('show');}
+  function hideEnd(){if(endcta)endcta.classList.remove('show');}
+  if(endx)endx.onclick=function(){dismissed=true;hideEnd();};
+  if(endcta)endcta.onclick=function(e){if(e.target===endcta){dismissed=true;hideEnd();}};
   for(var j=0;j<N;j++){(function(k){var b=document.createElement('button');b.className='dot';b.onclick=function(){if(pf)pf.flip(k);};dots.appendChild(b);})(j);}
   function pad(v){return(v<10?'0':'')+v;}
-  function ui(idx){var n=(typeof idx==='number'&&!isNaN(idx))?idx:curIdx;n=Math.max(0,Math.min(N-1,n));curIdx=n;var L=n-(n%2),lo=L+1,hi=Math.min(N,L+2);counter.textContent=(lo===hi?pad(lo):pad(lo)+'–'+pad(hi))+' / '+pad(N);prog.style.width=(hi/N*100)+'%';for(var d=0;d<dots.children.length;d++){dots.children[d].className='dot'+((d===L||d===L+1)?' on':'');}prev.disabled=(L<=0);next.disabled=(L>=N-2);if(endcta){if(L>=N-2)endcta.classList.add('show');else endcta.classList.remove('show');}}
+  function ui(idx){var n=(typeof idx==='number'&&!isNaN(idx))?idx:curIdx;n=Math.max(0,Math.min(N-1,n));curIdx=n;var L=n-(n%2),lo=L+1,hi=Math.min(N,L+2);counter.textContent=(lo===hi?pad(lo):pad(lo)+'–'+pad(hi))+' / '+pad(N);prog.style.width=(hi/N*100)+'%';for(var d=0;d<dots.children.length;d++){dots.children[d].className='dot'+((d===L||d===L+1)?' on':'');}prev.disabled=(L<=0);next.disabled=(L>=N-2);
+    // the CTA appears once you've finished reading (reached the last spread), not before
+    if(L>=N-2){ if(!endScheduled && (typeof playing==='undefined'||!playing)){ endScheduled=true; setTimeout(function(){ if(curIdx-(curIdx%2)>=N-2) showEnd(); },1100); } }
+    else { endScheduled=false; dismissed=false; hideEnd(); }
+  }
   function fit(){var aH=stage.clientHeight-10,aW=stage.clientWidth-132,h=aH,w=h*AR;if(2*w>aW){w=aW/2;h=w/AR;}return{w:Math.max(120,Math.floor(w)),h:Math.max(160,Math.floor(h))};}
   function build(){var s=fit();el.innerHTML='';pf=new St.PageFlip(el,{width:s.w,height:s.h,size:'fixed',minWidth:1,maxWidth:8000,minHeight:1,maxHeight:8000,maxShadowOpacity:0.5,showCover:false,usePortrait:true,drawShadow:true,flippingTime:820,useMouseEvents:true,mobileScrollSupport:false,swipeDistance:30,clickEventForward:true});pf.loadFromImages(PAGES);pf.on('flip',function(e){ui(e.data);});pf.on('init',function(e){ui(e.data);});}
   build();
@@ -171,7 +179,7 @@ function startBook(){
   var narr=document.getElementById('narr'),readbtn=document.getElementById('readbtn'),playing=false,pidx=0;
   function setIcon(p){if(readbtn){readbtn.classList.toggle('on',p);readbtn.querySelector('.ic').innerHTML=p?'&#10073;&#10073;':'&#9658;';}}
   function stopRead(){playing=false;if(narr){narr.pause();}setIcon(false);}
-  function stepRead(){if(!playing)return;if(pidx>=N){stopRead();return;}var src=AUDIO[pidx];if(!src){pidx++;stepRead();return;}var fresh=(pidx%2===0);if(fresh&&pf)pf.flip(pidx);setTimeout(function(){if(!playing)return;narr.src=src;var pr=narr.play();if(pr&&pr.catch)pr.catch(function(){stopRead();});},fresh?620:60);}
+  function stepRead(){if(!playing)return;if(pidx>=N){stopRead();showEnd();return;}var src=AUDIO[pidx];if(!src){pidx++;stepRead();return;}var fresh=(pidx%2===0);if(fresh&&pf)pf.flip(pidx);setTimeout(function(){if(!playing)return;narr.src=src;var pr=narr.play();if(pr&&pr.catch)pr.catch(function(){stopRead();});},fresh?620:60);}
   if(narr)narr.onended=function(){if(!playing)return;pidx++;setTimeout(stepRead,300);};
   function startRead(){if(!narr)return;playing=true;setIcon(true);pidx=curIdx-(curIdx%2);stepRead();}
   if(readbtn)readbtn.onclick=function(){if(playing)stopRead();else startRead();};

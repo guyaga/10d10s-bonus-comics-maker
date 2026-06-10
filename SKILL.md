@@ -117,14 +117,21 @@ node ~/.claude/skills/comics-maker/scripts/build-site.mjs "<project-dir>"
 ```
 Exports a **single self-contained HTML file** (images embedded) — a real **two-page book**
 (StPageFlip, bundled in `assets/vendor`): facing pages turn with a soft bend + shadow; drag
-a corner / arrows / click / swipe / dots. Plus progress bar, animated background, brand
-colors (from `lettering.accent`/`boxFill`), a header CTA, and a clickable end-CTA card on
-the last spread (the baked CTA strip is dark-masked on the web build so the crisp HTML one
-shows; the PDF keeps the baked CTA).
-- Configure with `site: { ctaUrl, ctaText, when }`.
-- **Click-to-read narration** (optional): drop per-page MP3s at `Audio/page_0N.mp3` (e.g.
-  ElevenLabs `eleven_v3` with emotion) and a **Read** button appears — it narrates each
-  page and turns the book automatically (read-along).
+a corner / arrows / click / swipe / dots. Plus progress bar, animated background and brand
+colors (from `lettering.accent`/`boxFill`). Always-on header CTA, and a centered
+**"you finished" CTA card** that fades in once the reader reaches the last spread (or the
+read-along ends) — dismissible, not pinned over the art. Configure with
+`site: { ctaUrl, ctaText, when }`.
+
+### Optional: click-to-read narration
+Narration is **opt-in** — only added if you ask for it:
+1. Add a `narration` array to the config (one line per page, in order; `eleven_v3` emotion
+   tags like `[tired]`/`[excited]` are supported; `""` skips a page) and optionally
+   `site: { voice: "<elevenlabs voice id>" }`.
+2. `node scripts/gen-narration.mjs "<project-dir>"` (needs `ELEVEN_API_KEY`) → writes
+   `Audio/page_0N.mp3`.
+3. Re-run `build-site.mjs`. A **Read** button appears that narrates each page and turns the
+   book automatically (read-along). With no `Audio/` files, there's simply no Read button.
 
 ## Config reference (`comic.config.mjs`)
 
