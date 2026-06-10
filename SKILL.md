@@ -115,11 +115,16 @@ Lays every assembled page onto a US-comic-sized page (6.625 × 10.25 in by defau
 ```bash
 node ~/.claude/skills/comics-maker/scripts/build-site.mjs "<project-dir>"
 ```
-Exports a **single self-contained HTML file** (images embedded, no dependencies) — a
-realistic **single-page book reader**: each page curls around the spine (CSS 3D) to reveal
-the next, with arrow/click/swipe/dot navigation, progress bar, a subtle animated
-background, brand colors (from `lettering.accent`/`boxFill`) and a header CTA. Configure
-via `site: { ctaUrl, ctaText }`. Works opened directly or hosted.
+Exports a **single self-contained HTML file** (images embedded) — a real **two-page book**
+(StPageFlip, bundled in `assets/vendor`): facing pages turn with a soft bend + shadow; drag
+a corner / arrows / click / swipe / dots. Plus progress bar, animated background, brand
+colors (from `lettering.accent`/`boxFill`), a header CTA, and a clickable end-CTA card on
+the last spread (the baked CTA strip is dark-masked on the web build so the crisp HTML one
+shows; the PDF keeps the baked CTA).
+- Configure with `site: { ctaUrl, ctaText, when }`.
+- **Click-to-read narration** (optional): drop per-page MP3s at `Audio/page_0N.mp3` (e.g.
+  ElevenLabs `eleven_v3` with emotion) and a **Read** button appears — it narrates each
+  page and turns the book automatically (read-along).
 
 ## Config reference (`comic.config.mjs`)
 
